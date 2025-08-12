@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Rocket Lab Valuation Model</title>
+    <style>
+        body { background-color: black; color: white; font-family: Arial, sans-serif; padding: 20px; }
+        h1, h2 { color: red; }
+        label { display: block; margin-top: 10px; }
+        input { background-color: white; color: black; border: 1px solid red; padding: 5px; }
+        button { background-color: red; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 20px; }
+        button:hover { background-color: darkred; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid white; padding: 8px; text-align: right; }
+        th { background-color: red; color: white; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Rocket Lab Valuation Model to Q4 2029</h1>
+    <p>Adjust assumptions for segments and general parameters, then click Calculate to view projections and DCF valuation.</p>
+
+    <h2>General Assumptions</h2>
+    <label>Discount Rate (%): <input type="number" id="discount" value="15" step="0.1"></label>
+    <label>Perpetual Growth Rate (%): <input type="number" id="perpgrowth" value="5" step="0.1"></label>
+    <label>Shares Outstanding (M): <input type="number" id="shares" value="479"></label>
+    <label>Net Debt (M, negative for net cash): <input type="number" id="netdebt" value="-190"></label>
+    <label>OpEx 2025 (M$): <input type="number" id="opex2025" value="400"></label>
+    <label>OpEx Annual Growth (%): <input type="number" id="opexgrowth" value="10" step="0.1"></label>
+    <label>Annual Capex (M$): <input type="number" id="capex" value="200"></label>
+    <label>Tax Rate (% when profitable): <input type="number" id="tax" value="25"></label>
+
+    <h2>Launch Segment Assumptions</h2>
+    <label>Revenue 2025 (M$): <input type="number" id="launch_rev2025" value="250"></label>
+    <label>Growth 2026 (%): <input type="number" id="launch_g2026" value="50" step="0.1"></label>
+    <label>Growth 2027 (%): <input type="number" id="launch_g2027" value="40" step="0.1"></label>
+    <label>Growth 2028 (%): <input type="number" id="launch_g2028" value="30" step="0.1"></label>
+    <label>Growth 2029 (%): <input type="number" id="launch_g2029" value="25" step="0.1"></label>
+    <label>Gross Margin (%): <input type="number" id="launch_margin" value="30" step="0.1"></label>
+
+    <h2>Space Systems Segment Assumptions</h2>
+    <label>Revenue 2025 (M$): <input type="number" id="spacesys_rev2025" value="150"></label>
+    <label>Growth 2026 (%): <input type="number" id="spacesys_g2026" value="25" step="0.1"></label>
+    <label>Growth 2027 (%): <input type="number" id="spacesys_g2027" value="25" step="0.1"></label>
+    <label>Growth 2028 (%): <input type="number" id="spacesys_g2028" value="20" step="0.1"></label>
+    <label>Growth 2029 (%): <input type="number" id="spacesys_g2029" value="20" step="0.1"></label>
+    <label>Gross Margin (%): <input type="number" id="spacesys_margin" value="40" step="0.1"></label>
+
+    <h2>Hypersonic Segment Assumptions</h2>
+    <label>Revenue 2025 (M$): <input type="number" id="hypersonic_rev2025" value="50"></label>
+    <label>Growth 2026 (%): <input type="number" id="hypersonic_g2026" value="40" step="0.1"></label>
+    <label>Growth 2027 (%): <input type="number" id="hypersonic_g2027" value="35" step="0.1"></label>
+    <label>Growth 2028 (%): <input type="number" id="hypersonic_g2028" value="30" step="0.1"></label>
+    <label>Growth 2029 (%): <input type="number" id="hypersonic_g2029" value="25" step="0.1"></label>
+    <label>Gross Margin (%): <input type="number" id="hypersonic_margin" value="35" step="0.1"></label>
+
+    <h2>Spacecraft Segment Assumptions</h2>
+    <label>Revenue 2025 (M$): <input type="number" id="spacecraft_rev2025" value="130"></label>
+    <label>Growth 2026 (%): <input type="number" id="spacecraft_g2026" value="35" step="0.1"></label>
+    <label>Growth 2027 (%): <input type="number" id="spacecraft_g2027" value="30" step="0.1"></label>
+    <label>Growth 2028 (%): <input type="number" id="spacecraft_g2028" value="25" step="0.1"></label>
+    <label>Growth 2029 (%): <input type="number" id="spacecraft_g2029" value="20" step="0.1"></label>
+    <label>Gross Margin (%): <input type="number" id="spacecraft_margin" value="45" step="0.1"></label>
+
+    <button onclick="calculate()">Calculate</button>
+
+    <div id="results"></div>
+
+    <script>
+        function calculate() {
+            // General inputs
+            const discount = parseFloat(document.getElementById('discount').value) / 100;
+            const perpgrowth = parseFloat(document.getElementById('perpgrowth').value) / 100;
+            const shares = parseFloat(document.getElementById('shares').value);
+            const netdebt = parseFloat(document.getElementById('netdebt').value);
+            const opex2025 = parseFloat(document.getElementById('opex2025').value);
+            const opexgrowth = parseFloat(document.getElementById('opexgrowth').value) / 100;
+            const capex = parseFloat(document.getElementById('capex').value);
+            const tax = parseFloat(document.getElementById('tax').value) / 100;
+
+            // Segments
+            const segments = ['launch', 'spacesys', 'hypersonic', 'spacecraft'];
+
+            // Collect rev2025, growth rates (array for 2026-2029), margins
+            const rev2025 = {};
+            const growth = {};
+            const margins = {};
+            segments.forEach(seg => {
+                rev2025[seg] = parseFloat(document.getElementById(`${seg}_rev2025`).value);
+                growth[seg] = [
+                    parseFloat(document.getElementById(`${seg}_g2026`).value) / 100,
+                    parseFloat(document.getElementById(`${seg}_g2027`).value) / 100,
+                    parseFloat(document.getElementById(`${seg}_g2028`).value) / 100,
+                    parseFloat(document.getElementById(`${seg}_g2029`).value) / 100
+                ];
+                margins[seg] = parseFloat(document.getElementById(`${seg}_margin`).value) / 100;
+            });
+
+            // Years
+            const years = [2025, 2026, 2027, 2028, 2029];
+
+            // Project revenues per segment per year
+            const rev_per_year = {};
+            segments.forEach(seg => {
+                rev_per_year[seg] = [rev2025[seg]];
+                for (let i = 0; i < 4; i++) {
+                    rev_per_year[seg].push(rev_per_year[seg][i] * (1 + growth[seg][i]));
+                }
+            });
+
+            // Total revenue per year
+            const total_rev = years.map((_, y) => segments.reduce((sum, seg) => sum + rev_per_year[seg][y], 0));
+
+            // Gross profit per year
+            const total_gp = years.map((_, y) => segments.reduce((sum, seg) => sum + rev_per_year[seg][y] * margins[seg], 0));
+
+            // OpEx per year
+            const opex = [opex2025];
+            for (let i = 1; i < 5; i++) {
+                opex.push(opex[i - 1] * (1 + opexgrowth));
+            }
+
+            // EBITDA per year
+            const ebitda = total_gp.map((gp, i) => gp - opex[i]);
+
+            // FCF: EBITDA - capex, with tax applied if EBITDA > 0 (simplified, assuming no D&A/WC changes)
+            const fcf = ebitda.map(eb => {
+                const taxable = eb > 0 ? eb * (1 - tax) : eb;
+                return taxable - capex;
+            });
+
+            // Terminal value (post-2029)
+            const tv = (fcf[4] * (1 + perpgrowth)) / (discount - perpgrowth);
+
+            // PV of FCFs (mid-year convention approx by discounting from year 1)
+            const pv_fcf = fcf.map((fc, y) => fc / Math.pow(1 + discount, y + 1));
+            const pv_tv = tv / Math.pow(1 + discount, 5);
+
+            // Sum to EV
+            const total_pv = pv_fcf.reduce((a, b) => a + b, 0) + pv_tv;
+            const ev = total_pv;
+            const equity = ev - netdebt;
+            const pershare = equity / shares;
+
+            // Build output HTML
+            let html = '<h2>Projections (M$)</h2>';
+            html += '<table><tr><th>Item / Year</th>';
+            years.forEach(year => html += `<th>${year}</th>`);
+            html += '</tr>';
+
+            // Revenues per segment
+            segments.forEach(seg => {
+                html += `<tr><td>${seg.charAt(0).toUpperCase() + seg.slice(1)} Revenue</td>`;
+                rev_per_year[seg].forEach(r => html += `<td>${r.toFixed(0)}</td>`);
+                html += '</tr>';
+            });
+
+            html += '<tr><td><strong>Total Revenue</strong></td>';
+            total_rev.forEach(r => html += `<td>${r.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>Gross Profit</td>';
+            total_gp.forEach(g => html += `<td>${g.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>OpEx</td>';
+            opex.forEach(o => html += `<td>${o.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>EBITDA</td>';
+            ebitda.forEach(e => html += `<td>${e.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>FCF</td>';
+            fcf.forEach(f => html += `<td>${f.toFixed(0)}</td>`);
+            html += '</tr></table>';
+
+            html += `<h2>Valuation</h2>`;
+            html += `<p>Terminal Value (M$): ${tv.toFixed(0)}</p>`;
+            html += `<p>Enterprise Value (M$): ${ev.toFixed(0)}</p>`;
+            html += `<p>Equity Value (M$): ${equity.toFixed(0)}</p>`;
+            html += `<p>Implied Price per Share: $${pershare.toFixed(2)}</p>`;
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
