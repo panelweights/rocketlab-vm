@@ -141,6 +141,17 @@
             const equity = ev - netdebt;
             const pershare = equity / shares;
 
+            // Projected EV, Market Cap, Share Price at year-end
+            let projected_ev = [];
+            let current_ev = ev;
+            for (let i = 0; i < 5; i++) {
+                let next_ev = current_ev * (1 + discount) - fcf[i];
+                projected_ev.push(next_ev);
+                current_ev = next_ev;
+            }
+            const projected_mcap = projected_ev.map(ev_val => ev_val - netdebt);
+            const projected_sp = projected_mcap.map(mcap => mcap / shares);
+
             // Build output HTML
             let html = '<h2>Projections (M$)</h2>';
             html += '<table><tr><th>Item / Year</th>';
@@ -172,9 +183,21 @@
 
             html += '<tr><td>FCF</td>';
             fcf.forEach(f => html += `<td>${f.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>Projected EV at Year-End</td>';
+            projected_ev.forEach(ev_val => html += `<td>${ev_val.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>Projected Market Cap at Year-End</td>';
+            projected_mcap.forEach(mcap => html += `<td>${mcap.toFixed(0)}</td>`);
+            html += '</tr>';
+
+            html += '<tr><td>Projected Share Price at Year-End ($)</td>';
+            projected_sp.forEach(sp => html += `<td>${sp.toFixed(2)}</td>`);
             html += '</tr></table>';
 
-            html += `<h2>Valuation</h2>`;
+            html += `<h2>Valuation (Current)</h2>`;
             html += `<p>Terminal Value (M$): ${tv.toFixed(0)}</p>`;
             html += `<p>Enterprise Value (M$): ${ev.toFixed(0)}</p>`;
             html += `<p>Equity Value (M$): ${equity.toFixed(0)}</p>`;
